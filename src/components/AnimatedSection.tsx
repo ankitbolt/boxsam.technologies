@@ -1,0 +1,81 @@
+import React from 'react';
+import { motion } from 'framer-motion';
+import { useIntersectionObserver } from '../hooks/useIntersectionObserver';
+
+interface AnimatedSectionProps {
+  children: React.ReactNode;
+  className?: string;
+  animation?: 'fadeIn' | 'slideUp' | 'slideLeft' | 'slideRight' | 'scale' | 'stagger';
+  delay?: number;
+  duration?: number;
+}
+
+const animations = {
+  fadeIn: {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1 }
+  },
+  slideUp: {
+    hidden: { opacity: 0, y: 50 },
+    visible: { opacity: 1, y: 0 }
+  },
+  slideLeft: {
+    hidden: { opacity: 0, x: -50 },
+    visible: { opacity: 1, x: 0 }
+  },
+  slideRight: {
+    hidden: { opacity: 0, x: 50 },
+    visible: { opacity: 1, x: 0 }
+  },
+  scale: {
+    hidden: { opacity: 0, scale: 0.8 },
+    visible: { opacity: 1, scale: 1 }
+  },
+  stagger: {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 }
+  }
+};
+
+const AnimatedSection: React.FC<AnimatedSectionProps> = ({
+  children,
+  className = '',
+  animation = 'fadeIn',
+  delay = 0,
+  duration = 0.6
+}) => {
+  const { ref, isIntersecting } = useIntersectionObserver({
+    threshold: 0.1,
+    triggerOnce: true
+  });
+
+  // Check for reduced motion preference
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (prefersReducedMotion) {
+    return (
+      <div ref={ref} className={className}>
+        {children}
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      ref={ref}
+      className={className}
+      initial="hidden"
+      animate={isIntersecting ? "visible" : "hidden"}
+      variants={animations[animation]}
+      transition={{
+        duration,
+        delay,
+        ease: [0.25, 0.46, 0.45, 0.94] // Custom easing for smooth feel
+      }}
+    >
+      {children}
+    </motion.div>
+  );
+};
+
+export default AnimatedSection;
