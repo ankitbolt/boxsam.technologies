@@ -1,8 +1,16 @@
 import React from 'react';
 import { Mail, Phone, MapPin, Facebook, Twitter, Linkedin, Instagram, Youtube, ArrowUp } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { useAnalytics } from '../hooks/useAnalytics';
+import toast from 'react-hot-toast';
 
 const Footer = () => {
+  const { trackFormSubmission, trackButtonClick } = useAnalytics();
+  const [email, setEmail] = React.useState('');
+  const [isSubscribing, setIsSubscribing] = React.useState(false);
+
   const scrollToTop = () => {
+    trackButtonClick('scroll_to_top');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -10,6 +18,35 @@ const Footer = () => {
     const element = document.getElementById(sectionId);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const handleNewsletterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+
+    setIsSubscribing(true);
+    try {
+      const { error } = await supabase
+        .from('newsletter_subscribers')
+        .insert([{ email }]);
+
+      if (error) {
+        if (error.code === '23505') { // Unique constraint violation
+          toast.error('You\'re already subscribed to our newsletter!');
+        } else {
+          throw error;
+        }
+      } else {
+        trackFormSubmission('newsletter_signup', { email });
+        toast.success('Successfully subscribed to our newsletter!');
+        setEmail('');
+      }
+    } catch (error) {
+      console.error('Newsletter subscription error:', error);
+      toast.error('Failed to subscribe. Please try again.');
+    } finally {
+      setIsSubscribing(false);
     }
   };
 
@@ -147,22 +184,31 @@ const Footer = () => {
       {/* Newsletter Signup - Optional Enhancement */}
       <div className="bg-gradient-to-r from-blue-600 to-purple-600">
         <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="text-center md:flex md:items-center md:justify-between">
+          <form onSubmit={handleNewsletterSubmit} className="text-center md:flex md:items-center md:justify-between">
             <div className="mb-4 md:mb-0">
               <h4 className="text-xl font-bold">Stay Updated with Delhi NCR Digital Trends</h4>
               <p className="text-blue-100">Get exclusive insights and strategies for growing your business in Delhi NCR.</p>
             </div>
-            <div className="flex max-w-md">
+            <div className="flex max-w-md mx-auto md:mx-0">
               <input 
                 type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
                 placeholder="Enter your email"
-                className="flex-1 px-4 py-3 rounded-l-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-white"
+                className="flex-1 px-4 py-3 rounded-l-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-white disabled:opacity-50"
+                disabled={isSubscribing}
               />
-              <button className="bg-white text-blue-600 px-6 py-3 rounded-r-lg font-semibold hover:bg-gray-100 transition-colors duration-300">
-                Subscribe
+              <button 
+                type="submit"
+                disabled={isSubscribing}
+                className="bg-white text-blue-600 px-6 py-3 rounded-r-lg font-semibold hover:bg-gray-100 transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => trackButtonClick('newsletter_subscribe')}
+              >
+                {isSubscribing ? 'Subscribing...' : 'Subscribe'}
               </button>
             </div>
-          </div>
+          </form>
         </div>
       </div>
     </footer>

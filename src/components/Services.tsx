@@ -2,8 +2,11 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Search, MousePointer, Share2, FileText, Mail, Code, BarChart3, Megaphone } from 'lucide-react';
 import AnimatedSection from './AnimatedSection';
+import { useAnalytics } from '../hooks/useAnalytics';
 
 const Services = () => {
+  const { trackServiceInterest, trackButtonClick } = useAnalytics();
+
   const services = [
     {
       icon: Search,
@@ -107,6 +110,10 @@ const Services = () => {
               
                 <div className="pt-4 border-t border-gray-100">
                   <motion.button 
+                    onClick={() => {
+                      trackServiceInterest(service.title);
+                      trackButtonClick('service_learn_more', { service: service.title });
+                    }}
                     className="text-purple-600 font-medium hover:text-purple-700 transition-colors text-sm flex items-center"
                     whileHover={{ x: 5 }}
                   >
@@ -128,6 +135,7 @@ const Services = () => {
                 Let's discuss which services are perfect for your business goals.
               </p>
               <motion.button 
+                onClick={() => trackButtonClick('get_custom_strategy')}
                 className="bg-white text-purple-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors btn-animate"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}

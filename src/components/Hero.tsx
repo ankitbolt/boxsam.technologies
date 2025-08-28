@@ -2,12 +2,56 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, Play, TrendingUp, Users, Award } from 'lucide-react';
 import AnimatedSection from './AnimatedSection';
+import { useAnalytics } from '../hooks/useAnalytics';
+import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 
 const Hero = () => {
+  const { trackButtonClick, trackFormSubmission } = useAnalytics();
+  const [email, setEmail] = React.useState('');
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
   const scrollToContact = () => {
+    trackButtonClick('hero_start_now');
     const element = document.getElementById('contact');
     if (element) {
       element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+
+    setIsSubmitting(true);
+    try {
+      // Subscribe to newsletter
+      const { error: newsletterError } = await supabase
+        .from('newsletter_subscribers')
+        .insert([{ email }]);
+
+      // Create lead
+      const { error: leadError } = await supabase
+        .from('leads')
+        .insert([{
+          name: 'Hero Form Lead',
+          email,
+          source: 'hero_email_form',
+          score: 40
+        }]);
+
+      if (newsletterError && newsletterError.code !== '23505') {
+        throw newsletterError;
+      }
+
+      trackFormSubmission('hero_email_form', { email });
+      toast.success('Thanks! We\'ll send you valuable insights and get in touch soon.');
+      setEmail('');
+    } catch (error) {
+      console.error('Hero form error:', error);
+      toast.error('Something went wrong. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -44,22 +88,32 @@ const Hero = () => {
           {/* Email Input */}
           <AnimatedSection animation="scale" delay={0.6}>
             <div className="max-w-md mx-auto mb-8">
-              <div className="flex bg-white rounded-lg p-2 hover-lift">
+              <form onSubmit={handleEmailSubmit} className="flex bg-white rounded-lg p-2 hover-lift">
                 <input 
                   type="email" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
                   placeholder="Enter business email or URL"
-                  className="flex-1 px-4 py-3 text-gray-900 bg-transparent focus:outline-none focus-visible"
+                  className="flex-1 px-4 py-3 text-gray-900 bg-transparent focus:outline-none focus-visible disabled:opacity-50"
+                  disabled={isSubmitting}
                   aria-label="Enter your business email or website URL"
                 />
                 <motion.button 
-                  className="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors btn-animate"
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors btn-animate disabled:opacity-50 disabled:cursor-not-allowed"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   aria-label="Submit email for consultation"
                 >
-                  <ArrowRight className="w-5 h-5" />
+                  {isSubmitting ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <ArrowRight className="w-5 h-5" />
+                  )}
                 </motion.button>
-              </div>
+              </form>
             </div>
           </AnimatedSection>
           
@@ -74,6 +128,7 @@ const Hero = () => {
                 Start Now
               </motion.button>
               <motion.button 
+                onClick={() => trackButtonClick('hero_learn_more')}
                 className="border-2 border-white/30 text-white px-8 py-4 rounded-lg font-semibold hover:bg-white/10 transition-colors flex items-center justify-center btn-animate"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}

@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import { Mail, Phone, MapPin, Clock, Send, CheckCircle } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { useAnalytics } from '../hooks/useAnalytics';
+import toast, { Toaster } from 'react-hot-toast';
 
 const Contact = () => {
+  const { trackFormSubmission, trackButtonClick } = useAnalytics();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -12,6 +16,7 @@ const Contact = () => {
     message: ''
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const services = [
     'Search Engine Optimization (SEO)',
@@ -41,29 +46,74 @@ const Contact = () => {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Here you would typically send the data to your backend
-    console.log('Form submitted:', formData);
-    setIsSubmitted(true);
-    
-    // Reset form after 3 seconds
-    setTimeout(() => {
-      setIsSubmitted(false);
-      setFormData({
-        name: '',
-        email: '',
-        phone: '',
-        company: '',
-        service: '',
-        budget: '',
-        message: ''
+    setIsSubmitting(true);
+
+    try {
+      // Submit to Supabase
+      const { error } = await supabase
+        .from('contact_submissions')
+        .insert([formData]);
+
+      if (error) throw error;
+
+      // Track form submission
+      trackFormSubmission('contact_form', {
+        service: formData.service,
+        budget: formData.budget,
+        has_company: !!formData.company
       });
-    }, 3000);
+
+      // Create lead entry
+      await supabase.from('leads').insert([{
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        company: formData.company,
+        source: 'website_contact_form',
+        score: calculateLeadScore(formData)
+      }]);
+
+      setIsSubmitted(true);
+      toast.success('Message sent successfully! We\'ll get back to you within 24 hours.');
+      
+      // Reset form after 5 seconds
+      setTimeout(() => {
+        setIsSubmitted(false);
+        setFormData({
+          name: '',
+          email: '',
+          phone: '',
+          company: '',
+          service: '',
+          budget: '',
+          message: ''
+        });
+      }, 5000);
+
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      toast.error('Failed to send message. Please try again or contact us directly.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const calculateLeadScore = (data: typeof formData) => {
+    let score = 20; // Base score
+    
+    if (data.company) score += 20;
+    if (data.phone) score += 15;
+    if (data.budget && data.budget !== 'Let\'s Discuss') score += 25;
+    if (data.service) score += 20;
+    
+    return Math.min(score, 100);
   };
 
   return (
     <section id="contact" className="py-20 bg-gray-50">
+      <Toaster position="top-right" />
       <div className="max-w-7xl mx-auto px-4">
         <div className="text-center mb-16">
           <div className="inline-flex items-center bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
@@ -280,9 +330,11 @@ const Contact = () => {
 
                   <button
                     type="submit"
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-6 rounded-lg font-semibold hover:shadow-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center"
+                    disabled={isSubmitting}
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-6 rounded-lg font-semibold hover:shadow-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                    onClick={() => trackButtonClick('contact_form_submit')}
                   >
-                    Send Message & Get Free Consultation
+                    {isSubmitting ? 'Sending...' : 'Send Message & Get Free Consultation'}
                     <Send className="ml-2 w-5 h-5" />
                   </button>
 

@@ -1,8 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, X, Phone, Mail, ChevronDown } from 'lucide-react';
+import { Menu, X, Phone, Mail, ChevronDown, User, LogOut } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { useAnalytics } from '../hooks/useAnalytics';
+import AuthModal from './Auth/AuthModal';
 
 const Header = () => {
+  const { user, signOut } = useAuth();
+  const { trackButtonClick } = useAnalytics();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
@@ -14,6 +21,7 @@ const Header = () => {
   }, []);
 
   const scrollToSection = (sectionId: string) => {
+    trackButtonClick('nav_link', { section: sectionId });
     const element = document.getElementById(sectionId);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth' });
@@ -21,7 +29,19 @@ const Header = () => {
     }
   };
 
+  const handleAuthClick = (mode: 'login' | 'signup') => {
+    setAuthMode(mode);
+    setIsAuthModalOpen(true);
+    trackButtonClick(`auth_${mode}_click`);
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    trackButtonClick('sign_out');
+  };
+
   return (
+    <>
     <header className={`fixed top-0 w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-white shadow-lg' : 'bg-white/95 backdrop-blur-sm'}`}>
       {/* Top bar */}
       <div className="bg-blue-600 text-white py-2 px-4">
@@ -63,9 +83,38 @@ const Header = () => {
             <button onClick={() => scrollToSection('services')} className="text-gray-700 hover:text-blue-600 transition-colors">Services</button>
             <button onClick={() => scrollToSection('portfolio')} className="text-gray-700 hover:text-blue-600 transition-colors">Portfolio</button>
             <button onClick={() => scrollToSection('testimonials')} className="text-gray-700 hover:text-blue-600 transition-colors">Testimonials</button>
-            <button onClick={() => scrollToSection('contact')} className="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors">
-              Get Started
-            </button>
+            <button onClick={() => scrollToSection('blog')} className="text-gray-700 hover:text-blue-600 transition-colors">Blog</button>
+            
+            {user ? (
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <User className="w-5 h-5 text-gray-600" />
+                  <span className="text-gray-700">{user.email}</span>
+                </div>
+                <button 
+                  onClick={handleSignOut}
+                  className="text-gray-700 hover:text-red-600 transition-colors flex items-center"
+                >
+                  <LogOut className="w-4 h-4 mr-1" />
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-4">
+                <button 
+                  onClick={() => handleAuthClick('login')}
+                  className="text-gray-700 hover:text-blue-600 transition-colors"
+                >
+                  Sign In
+                </button>
+                <button 
+                  onClick={() => scrollToSection('contact')} 
+                  className="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  Get Started
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -86,14 +135,50 @@ const Header = () => {
               <button onClick={() => scrollToSection('services')} className="text-gray-700 hover:text-blue-600 transition-colors text-left">Services</button>
               <button onClick={() => scrollToSection('portfolio')} className="text-gray-700 hover:text-blue-600 transition-colors text-left">Portfolio</button>
               <button onClick={() => scrollToSection('testimonials')} className="text-gray-700 hover:text-blue-600 transition-colors text-left">Testimonials</button>
-              <button onClick={() => scrollToSection('contact')} className="bg-purple-600 text-white px-6 py-3 rounded-lg w-fit hover:bg-purple-700 transition-colors">
-                Get Started
-              </button>
+              <button onClick={() => scrollToSection('blog')} className="text-gray-700 hover:text-blue-600 transition-colors text-left">Blog</button>
+              
+              {user ? (
+                <div className="space-y-2 pt-4 border-t border-gray-200">
+                  <div className="text-sm text-gray-600">Signed in as: {user.email}</div>
+                  <button 
+                    onClick={handleSignOut}
+                    className="text-red-600 hover:text-red-700 transition-colors text-left flex items-center"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2 pt-4 border-t border-gray-200">
+                  <button 
+                    onClick={() => handleAuthClick('login')}
+                    className="text-gray-700 hover:text-blue-600 transition-colors text-left"
+                  >
+                    Sign In
+                  </button>
+                  <button 
+                    onClick={() => handleAuthClick('signup')}
+                    className="text-gray-700 hover:text-blue-600 transition-colors text-left"
+                  >
+                    Sign Up
+                  </button>
+                  <button onClick={() => scrollToSection('contact')} className="bg-purple-600 text-white px-6 py-3 rounded-lg w-fit hover:bg-purple-700 transition-colors">
+                    Get Started
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
       </nav>
     </header>
+    
+    <AuthModal 
+      isOpen={isAuthModalOpen}
+      onClose={() => setIsAuthModalOpen(false)}
+      initialMode={authMode}
+    />
+    </>
   );
 };
 
